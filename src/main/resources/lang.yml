@@ -82,15 +82,19 @@ command:
     usage: 'unname'
     unnamed: '%s unnamed'
 animal:
+  camel: 'CAMEL'
+  camel_husk: 'CAMEL HUSK'
   cat: 'CAT'
   donkey: 'DONKEY'
   horse: 'HORSE'
   llama: 'LLAMA'
   mule: 'MULE'
+  nautilus: 'NAUTILUS'
   parrot: 'PARROT'
   skeleton_horse: 'SKELETON HORSE'
   trader_llama: 'TRADER LLAMA'
   zombie_horse: 'ZOMBIE HORSE'
+  zombie_nautilus: 'ZOMBIE NAUTILUS'
   wolf: 'WOLF'
 variant:
   horse:
