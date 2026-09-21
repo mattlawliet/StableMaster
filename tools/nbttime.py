@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
-"""Read or set the game clock (Data.Time) in a Minecraft level.dat.
+"""Read or set a world's game clock.
 
-Usage:  nbttime.py <level.dat>              show Time and DayTime
-        nbttime.py <level.dat> <new Time>   set Time (writes a .bak first)
+Two files can hold it, depending on the server's world layout:
+  level.dat                                     -> Data.Time
+  dimensions/<dim>/data/paper/level_overrides.dat -> data.game_time
+
+Paper's newer single-folder layout keeps one level.dat for every dimension
+and overrides the clock per dimension in level_overrides.dat, so that is the
+file to edit there. The older layout (world/, world_nether/, world_the_end/)
+has a level.dat per world instead. This picks whichever key the file has.
+
+Usage:  nbttime.py <file>                   show the clock
+        nbttime.py <file> <new value>       set it (writes a .bak first)
+        nbttime.py <file> <new> --allow-lower   lower it (causes the camel bug)
 
 Patches the 8 bytes of the long in place, so nothing about the file's
 structure changes. Server must be stopped.
@@ -69,21 +79,31 @@ def main():
     path = sys.argv[1]
     buf, gz = load(path)
     r = root(buf)
-    t = find(buf, r, ["Data", "Time"])
-    print("Time %d" % struct.unpack_from(">q", buf, t))
+    for keypath in (["Data", "Time"], ["data", "game_time"]):
+        try:
+            t = find(buf, r, keypath)
+            key = ".".join(keypath)
+            break
+        except KeyError:
+            continue
+    else:
+        print("no clock in this file (looked for Data.Time and data.game_time)")
+        sys.exit(1)
+    print("%s %d" % (key, struct.unpack_from(">q", buf, t)[0]))
     if len(sys.argv) < 3:
         return
     new = int(sys.argv[2])
     old = struct.unpack_from(">q", buf, t)[0]
-    if new < old:
+    if new < old and "--allow-lower" not in sys.argv:
         print("REFUSING: %d is lower than the current %d. Moving a world clock "
-              "backwards is what causes the camel bug." % (new, old))
+              "backwards is what causes the camel bug. Pass --allow-lower if "
+              "you are deliberately reproducing it." % (new, old))
         sys.exit(1)
     shutil.copy2(path, path + ".bak")
     struct.pack_into(">q", buf, t, new)
     writer = gzip.open if gz else open
     with writer(path, "wb") as f:
         f.write(bytes(buf))
-    print("Time set to %d (backup at %s.bak)" % (new, path))
+    print("set to %d (backup at %s.bak)" % (new, path))
 
 main()
