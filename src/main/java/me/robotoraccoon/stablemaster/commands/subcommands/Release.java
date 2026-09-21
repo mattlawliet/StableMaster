@@ -52,8 +52,11 @@ public class Release extends InteractCommand {
             }
 
             stable.removeHorse(horse);
-        } else if (animal instanceof Sittable) {
-            // Set released animals to non-sitting position
+        }
+
+        // Set released animals to non-sitting position. A camel is both an
+        // AbstractHorse and a Sittable, so this cannot hide in an else branch.
+        if (animal instanceof Sittable) {
             ((Sittable) animal).setSitting(false);
         }
 

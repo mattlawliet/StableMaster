@@ -82,7 +82,7 @@ public class Info extends InteractCommand {
         // Current and maximum health
         if (config.getInt("health") >= permissionLevel) {
             Double hearts = a.getHealth() / 2;
-            Double maxHearts = a.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue() / 2;
+            Double maxHearts = a.getAttribute(Attribute.MAX_HEALTH).getValue() / 2;
             new LangString("command.info.health", hearts, maxHearts).send(player);
         }
 
@@ -95,7 +95,7 @@ public class Info extends InteractCommand {
 
         // Max Speed
         if (config.getInt("max-speed") >= permissionLevel) {
-            Double speed = a.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).getValue();
+            Double speed = a.getAttribute(Attribute.MOVEMENT_SPEED).getValue();
             Double blocksPerSecond = speed * 43.1;
             new LangString("command.info.max-speed", speed, blocksPerSecond).send(player);
         }

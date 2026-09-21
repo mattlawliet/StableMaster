@@ -7,7 +7,6 @@ import me.robotoraccoon.stablemaster.commands.CommandInfo;
 import me.robotoraccoon.stablemaster.commands.CoreCommand;
 import me.robotoraccoon.stablemaster.commands.InteractCommand;
 import me.robotoraccoon.stablemaster.data.Stable;
-import org.apache.commons.lang.StringUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Animals;
@@ -38,7 +37,7 @@ public class Rename extends InteractCommand {
      */
     public void handle(CommandInfo commandInfo) {
         final Player player = (Player) commandInfo.getSender();
-        String name = StringUtils.join(commandInfo.getArgs(), " ");
+        String name = String.join(" ", commandInfo.getArgs());
 
         if (player.hasPermission("stablemaster.rename.colors")) {
             name = ChatColor.translateAlternateColorCodes('&', name);
