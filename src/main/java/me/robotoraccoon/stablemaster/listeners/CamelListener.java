@@ -89,46 +89,61 @@ public class CamelListener implements Listener {
 
     /**
      * Stand the camel up, which stamps the game time of the world it is in.
-     * A stuck camel can be sitting with its pose saying so, or standing with a
-     * stamp from the future, so sit it down first where it needs it - standing
-     * up is only allowed out of a sitting pose.
+     * A camel carrying a negative stamp is sitting as far as the server is
+     * concerned and standing up is enough. One carrying a positive stamp is
+     * already standing, so it has to sit down before it can stand up again.
+     * Neither reports itself reliably through Sittable#isSitting, so go by the
+     * pose time and check whether the first attempt took.
      * @param camel Camel
      */
     private void restamp(Camel camel) {
-        if (!isStuck(camel) || !claimStamp(camel)) {
+        final Long before = poseTime(camel);
+
+        // A pose time of zero or more is a camel using this world's clock
+        if (before != null && before >= 0L) {
             return;
         }
-        if (!camel.isSitting()) {
-            camel.setSitting(true);
+
+        if (!claimStamp(camel)) {
+            return;
         }
+
         camel.setSitting(false);
+
+        final Long afterStandUp = poseTime(camel);
+        if (afterStandUp == null || afterStandUp < 0L) {
+            camel.setSitting(true);
+            camel.setSitting(false);
+        }
+
+        StableMaster.getPlugin().getLogger().info("Stood up stuck camel " + camel.getUniqueId()
+            + " (pose time " + before + " -> " + poseTime(camel) + ")");
     }
 
     /**
-     * Whether the camel's pose stamp came from a clock ahead of this world's.
-     * Camel#getPoseTime is the game time since the stamp, so a negative value
-     * is a stamp this world has not reached yet, and the camel is stuck until
-     * it does. Nothing in the Bukkit API reports it, hence the server entity.
+     * Game time elapsed since the camel's pose stamp. Negative means the stamp
+     * is ahead of this world's clock, which is the bug being worked around.
+     * Nothing in the Bukkit API reports it, hence the server entity.
      * @param camel Camel
-     * @return Whether the camel is stuck in its pose transition
+     * @return Pose time, or null if it could not be read
      */
-    private boolean isStuck(Camel camel) {
+    private Long poseTime(Camel camel) {
         if (poseTimeUnreadable) {
-            return true;
+            return null;
         }
 
         try {
             final Method getHandle = camel.getClass().getMethod("getHandle");
             final Object handle = getHandle.invoke(camel);
-            return (Long) handle.getClass().getMethod("getPoseTime").invoke(handle) < 0L;
+            return (Long) handle.getClass().getMethod("getPoseTime").invoke(handle);
         } catch (ReflectiveOperationException | ClassCastException e) {
-            // ponytail: treat every camel as stuck if the server entity stops
-            // answering. The needless sit and stand is cosmetic; staying wedged
-            // is not. Drop this whole method if the API ever exposes the tick.
+            // ponytail: no API for the pose tick. Without it every camel has to
+            // be treated as possibly stuck, which costs a needless sit and
+            // stand. Drop this method if the API ever exposes the tick.
             poseTimeUnreadable = true;
             StableMaster.getPlugin().getLogger().warning(
                 "Cannot read a camel's pose tick (" + e + "), so camels will be stood up on every punch and portal");
-            return true;
+            return null;
         }
     }
 
