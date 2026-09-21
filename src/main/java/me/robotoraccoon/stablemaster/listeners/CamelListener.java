@@ -1,6 +1,8 @@
 package me.robotoraccoon.stablemaster.listeners;
 
 import me.robotoraccoon.stablemaster.StableMaster;
+
+import java.lang.reflect.Method;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Camel;
 import org.bukkit.entity.Entity;
@@ -35,6 +37,9 @@ public class CamelListener implements Listener {
     /** Standing up takes 52 ticks, so leave room for it before stamping again */
     private static final long RESTAMP_COOLDOWN_TICKS = 100L;
 
+    /** Whether the pose tick could not be read, so every camel counts as stuck */
+    private static boolean poseTimeUnreadable = false;
+
     /**
      * Camel arriving from another dimension carries a foreign game-time stamp
      * @param event Event
@@ -65,7 +70,7 @@ public class CamelListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.isCancelled() && event.getDamager() instanceof Player && event.getEntity() instanceof Camel) {
-            standUp((Camel) event.getEntity());
+            restamp((Camel) event.getEntity());
         }
     }
 
@@ -84,32 +89,47 @@ public class CamelListener implements Listener {
 
     /**
      * Stand the camel up, which stamps the game time of the world it is in.
-     * Does nothing to a camel that is already standing, so punching a healthy
-     * camel no longer sits it down and stands it back up for no reason.
-     * @param camel Camel
-     */
-    private void standUp(Camel camel) {
-        if (camel.isSitting() && claimStamp(camel)) {
-            camel.setSitting(false);
-        }
-    }
-
-    /**
-     * Stand the camel up whether or not it reports itself sitting. A camel can
-     * carry a future stamp while its pose says standing, and that is stuck too,
-     * but nothing in the API can tell that apart from a healthy camel - so this
-     * costs one sit and stand, and is only used where a camel has just arrived
-     * from another world.
+     * A stuck camel can be sitting with its pose saying so, or standing with a
+     * stamp from the future, so sit it down first where it needs it - standing
+     * up is only allowed out of a sitting pose.
      * @param camel Camel
      */
     private void restamp(Camel camel) {
-        if (!claimStamp(camel)) {
+        if (!isStuck(camel) || !claimStamp(camel)) {
             return;
         }
         if (!camel.isSitting()) {
             camel.setSitting(true);
         }
         camel.setSitting(false);
+    }
+
+    /**
+     * Whether the camel's pose stamp came from a clock ahead of this world's.
+     * Camel#getPoseTime is the game time since the stamp, so a negative value
+     * is a stamp this world has not reached yet, and the camel is stuck until
+     * it does. Nothing in the Bukkit API reports it, hence the server entity.
+     * @param camel Camel
+     * @return Whether the camel is stuck in its pose transition
+     */
+    private boolean isStuck(Camel camel) {
+        if (poseTimeUnreadable) {
+            return true;
+        }
+
+        try {
+            final Method getHandle = camel.getClass().getMethod("getHandle");
+            final Object handle = getHandle.invoke(camel);
+            return (Long) handle.getClass().getMethod("getPoseTime").invoke(handle) < 0L;
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            // ponytail: treat every camel as stuck if the server entity stops
+            // answering. The needless sit and stand is cosmetic; staying wedged
+            // is not. Drop this whole method if the API ever exposes the tick.
+            poseTimeUnreadable = true;
+            StableMaster.getPlugin().getLogger().warning(
+                "Cannot read a camel's pose tick (" + e + "), so camels will be stood up on every punch and portal");
+            return true;
+        }
     }
 
     /**
