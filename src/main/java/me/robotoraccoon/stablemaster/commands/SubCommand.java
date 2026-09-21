@@ -65,8 +65,11 @@ public abstract class SubCommand {
             return;
         }
 
-        // Run the command.
-        StableMaster.getPlugin().getServer().getScheduler().runTaskAsynchronously(
+        // Run the command on the main thread. Sub-commands read and mutate
+        // entities, inventories and config, none of which is safe off it -
+        // /stable calm tripped Paper's async check on getNearbyEntities, and
+        // the others only got away with it because fewer calls are guarded.
+        StableMaster.getPlugin().getServer().getScheduler().runTask(
                 StableMaster.getPlugin(),
                 () -> handle(info)
         );
