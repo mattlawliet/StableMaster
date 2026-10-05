@@ -150,7 +150,7 @@ public class Info extends InteractCommand {
 
             case CAT:
                 Cat cat = (Cat) animal;
-                return new LangString("variant.cat.type." + cat.getCatType()).getMessage();
+                return new LangString("variant.cat.type." + cat.getCatType().getKey().getKey()).getMessage();
 
             case PARROT:
                 Parrot parrot = (Parrot) animal;
